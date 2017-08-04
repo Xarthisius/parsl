@@ -33,11 +33,19 @@ class AppFailure(ParslError):
     retries (int/None)
     '''
 
-    def __init__(self, reason, exitcode, retries=None):
+    def __init__(self, reason, exitcode, retries=None, cmd_line=None):
         self.reason = reason
         self.exitcode = exitcode
         self.retries = retries
+        self.cmd_line = cmd_line
 
+    def __repr__ (self):
+        return "AppFailure with code:{0} Reason:{1} cmd_line:{2}".format(self.exitcode, 
+                                                                         self.reason, 
+                                                                         self.cmd_line)
+
+    def __str__ (self):
+        return self.__repr__()
 
 class MissingOutputs(ParslError):
     ''' Error raised at the end of app execution due to missing
@@ -48,15 +56,18 @@ class MissingOutputs(ParslError):
     outputs (List of strings/files..)
     '''
 
-    def __init__(self, reason, outputs):
+    def __init__(self, reason, outputs, cmd_line=None):
         self.reason = reason
         self.outputs = outputs
+        self.cmd_line = cmd_line
 
     def __repr__ (self):
-        return "Missing Outputs: {0}, Reason:{1}".format(self.outputs, self.reason)
+        return "Missing Outputs:{0} Reason:{1} cmd_line:{2}".format(self.outputs, 
+                                                                    self.reason, 
+                                                                    self.cmd_line)
 
     def __str__ (self):
-        return "Reason:{0} Missing:{1}".format(self.reason, self.outputs)
+        return self.__repr__()
 
 class DependencyError(ParslError):
     ''' Error raised at the end of app execution due to missing
@@ -73,9 +84,11 @@ class DependencyError(ParslError):
         self.outputs = outputs
 
     def __repr__ (self):
-        return "Missing Outputs: {0}, Reason:{1}".format(self.outputs, self.reason)
+        return "Dependencies:{0}, Reason:{1} outputs:{2}".format(self.dependent_exceptions,
+                                                                 self.reason,
+                                                                 self.outputs)
 
     def __str__ (self):
-        return "Reason:{0} Missing:{1}".format(self.reason, self.outputs)
+        return self.__repr__()
 
 
