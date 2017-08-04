@@ -35,4 +35,4 @@ class DependencyError(DataFlowExceptions):
         return "Missing Outputs: {0}, Reason:{1}".format(self.outputs, self.reason)
 
     def __str__ (self):
-        return "Reason:{0} Missing:{1}".format(self.reason, self.outputs)
+        return "Reason:{0} Missing:{1}".format(self.reason, self.dependent_exceptions)
