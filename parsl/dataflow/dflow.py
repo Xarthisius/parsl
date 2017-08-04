@@ -21,6 +21,7 @@ Here's a simplified diagram of what happens internally::
 import copy
 import uuid
 import logging
+import pickle
 from inspect import signature
 from concurrent.futures import Future
 from functools import partial
@@ -60,6 +61,7 @@ class DataFlowKernel(object):
         self.fut_task_lookup = {}
         self.tasks           = {}
         self.executor        = executor
+        self.save_file       = ".dfk_save_state"
 
     @staticmethod
     def _count_deps(depends, task_id):
@@ -74,6 +76,16 @@ class DataFlowKernel(object):
 
         return count
 
+    def save_state(self):
+        with open(self.save_file, 'w') as sf:
+            pickle.dump(self.tasks, sf)
+
+    def shutdown(self):
+        logger.warn("Shutdown request received... attempting save_state")
+        self.save_state()
+        self.executor.shutdown(wait=False)
+        exit(-7)
+
     def handle_update(self, task_id, future):
         ''' This function is called only as a callback from a task being done
         Move done task from runnable -> done
@@ -83,16 +95,24 @@ class DataFlowKernel(object):
              task_id (string) : Task id which is a uuid string
              future (Future) : The future object corresponding to the task which makes this callback
         '''
+        logger.error("[Task:%s] Update with exception : %s Done:%s", task_id, future._exception, future.done())
+
         if future.done():
+            
+            if future._exception :
+                logger.error("Failed task_id:%s Name:%s", task_id, self.tasks[task_id]['func'])
 
-            # Untested
-            if not self.lazy_fail:
-                # Fail early
-                if future._exception:
-                    future.result()
+                # Untested
+                if not self.lazy_fail:
+                    # Fail early
+                    #future.result()
+                    print(future._exception)
+                    self.shutdown()
 
-            logger.debug("Completed : %s with %s", task_id, future)
-            self.tasks[task_id]['status'] = States.done
+            else :
+                logger.debug("Completed : %s with %s", task_id, future)
+                self.tasks[task_id]['status'] = States.done
+        
 
         # Identify tasks that have resolved dependencies and launch
         for tid in list(self.tasks):
@@ -105,9 +125,8 @@ class DataFlowKernel(object):
                 new_args, kwargs, exceptions = self.sanitize_and_wrap(task_id,
                                                                       self.tasks[tid]['args'],
                                                                       self.tasks[tid]['kwargs'])
-
                 if not exceptions :
-                    logger.debug("[{0}] Launching Task".format(tid))
+                    logger.debug("[Task:%s] Launching Task", tid)
                     # There are no dependency errors
                     self.tasks[tid]['status'] = States.running
                     #exec_fu = self.launch_task(task_id, self.tasks[tid]['func'], *new_args, **kwargs)
@@ -120,7 +139,7 @@ class DataFlowKernel(object):
                         logger.error("Caught AttributeError at update_parent for task:%s", tid)
                         raise e
                 else:
-                    logger.debug("[{0}] Deferring Task due to dependency failure".format(tid))
+                    logger.debug("[Task:{0}] Deferring Task due to dependency failure(s) {1}".format(tid, exceptions))
                     # Raise a dependency exception
                     self.tasks[tid]['status'] = States.dep_fail
                     try:
@@ -133,7 +152,7 @@ class DataFlowKernel(object):
                         print(self.tasks[tid]['app_fu'])
 
                     except AttributeError as e:
-                        logger.error("Caught AttributeError at update_parent for task:%s", tid)
+                        logger.error("[Task:%s] Caught AttributeError at update_parent", tid)
                         raise e
 
         return
@@ -299,7 +318,7 @@ class DataFlowKernel(object):
                     try :
                         new_inputs.extend([dep.result()])
                     except Exception as e:
-                        dep_failures.extend(e)
+                        dep_failures.extend([e])
 
                 else:
                     new_inputs.extend([dep])
