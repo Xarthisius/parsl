@@ -13,7 +13,23 @@ class ThreadPoolExecutor(ParslExecutor):
         '''
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
 
+    def shutdown(self, wait=True):
+        ''' Calls the shutdown method of the underlying executor 
+        Wait behavior from documentation :
+                
+        Signal the executor that it should free any resources that it is using when the 
+        currently pending futures are done executing. Calls to Executor.submit() and 
+        Executor.map() made after shutdown will raise RuntimeError.
 
+        If wait is True then this method will not return until all the pending futures 
+        are done executing and the resources associated with the executor have been freed. 
+        If wait is False then this method will return immediately and the resources associated
+        with the executor will be freed when all pending futures are done executing. 
+        Regardless of the value of wait, the entire Python program will not exit until all
+        pending futures are done executing.
+        '''
+        return self.executor.shutdown(wait=wait)
+        
     def submit (self, *args, **kwargs):
         ''' Submits work to the thread pool
         This method is simply pass through and behaves like a submit call as described
