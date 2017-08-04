@@ -100,19 +100,21 @@ def bash_executor(executable, *args, **kwargs):
         #logger.error("Caught exception : {0}".format(e))
         error = e
         status = 'failed'
+        logger.error("Raising AppException with %s ", proc.returncode)
         raise AppException("App caught exception : {0}".format(proc.returncode), e)
     finally:
         if returncode != 0:
-            raise AppFailure("App Failed exit code: {0}".format(proc.returncode), proc.returncode)
+            logger.error("Raising AppFailure with %s %s", proc.returncode, executable)
+            raise AppFailure("App Failed exit code: {0}".format(proc.returncode), proc.returncode, cmd_line=executable)
 
     # TODO : Add support for globs here
     missing = []
     for outputfile in kwargs.get('outputs', []):
-        logger.debug("Checking existence of file or glob  %s ", outputfile)
         if not os.path.exists(outputfile):
             missing.extend([outputfile])
     if missing:
-        raise MissingOutputs("Missing outputs", missing)
+        logger.error("Raising MissingOutputs Error with  %s ", missing)
+        raise MissingOutputs("Missing outputs", missing, cmd_line=executable)
 
 
     exec_duration = time.time() - start_t
