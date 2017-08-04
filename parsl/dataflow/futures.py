@@ -120,7 +120,18 @@ class AppFuture(Future):
         else:
             return False
 
+    def parent_exception(self):
+        ''' Return the exception object if one exists without raising the exception
+        '''
+        if self.parent:
+            return self.parent._exception
+        else:
+            return None
+
     def exception(self, timeout=None):
+        ''' Call exception() of the parent
+        else False
+        '''
         if self.parent:
             return self.parent.exception(timeout=timeout)
         else:
