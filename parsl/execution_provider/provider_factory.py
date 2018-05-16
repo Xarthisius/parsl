@@ -40,6 +40,7 @@ class ExecProviderFactory (object):
                                     'aws': EC2Provider,
                                     'googleCloud': GoogleCloud,
                                     'azure': AzureProvider,
+                                    'kubernetes': Kubernetes,
                                     # Cluster/HPC systems
                                     'slurm': Slurm,
                                     'cobalt': Cobalt,

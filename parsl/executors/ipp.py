@@ -177,10 +177,11 @@ sleep infinity
             try:
                 for i in range(self.config["execution"]["block"].get("initBlocks", 1)):
                     eng = self.execution_provider.submit(self.launch_cmd, 1)
-                    logger.debug("Launched block : {0}:{1}".format(i, eng))
                     if not eng:
                         raise(ScalingFailed(self.execution_provider.sitename,
                                             "Ipp executor failed to scale via execution_provider"))
+
+                    logger.debug("Launched block : {0}:{1}".format(i, eng))
                     self.engines.extend([eng])
 
             except Exception as e:
