@@ -202,7 +202,8 @@ class DataFlowKernel(object):
 
             if not self.lazy_fail:
                 logger.debug("Eager fail, skipping retry logic")
-                raise e
+                logger.error("DFK shutdown intiated by Task {} failure".format(task_id))
+                self.atexit_cleanup()
 
             if self.tasks[task_id]['fail_count'] <= self.fail_retries:
                 logger.debug("Task {} marked for retry".format(task_id))
