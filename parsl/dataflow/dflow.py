@@ -206,6 +206,7 @@ class DataFlowKernel(object):
                 self.atexit_cleanup()
 
             if self.tasks[task_id]['fail_count'] <= self.fail_retries:
+                print("fail_count: {} fail_retries: {}".format(self.tasks[task_id]['fail_count'], self.fail_retries))
                 logger.debug("Task {} marked for retry".format(task_id))
                 self.tasks[task_id]['status'] = States.pending
 
@@ -245,17 +246,19 @@ class DataFlowKernel(object):
                     # There are no dependency errors
                     exec_fu = None
                     # Acquire a lock, retest the state, launch
-                    with self.task_launch_lock:
-                        if self.tasks[tid]['status'] == States.pending:
-                            self.tasks[tid]['status'] = States.running
-                            exec_fu = self.launch_task(
-                                tid, self.tasks[tid]['func'], *new_args, **kwargs)
+                    if self.tasks[tid]['status'] != States.pending:
+                        continue
+
+                    exec_fu = self.launch_task(
+                        tid, self.tasks[tid]['func'], *new_args, **kwargs)
 
                     if exec_fu:
                         self.tasks[task_id]['exec_fu'] = exec_fu
                         try:
                             self.tasks[tid]['app_fu'].update_parent(exec_fu)
                             self.tasks[tid]['exec_fu'] = exec_fu
+                            self.tasks[task_id]['exec_fu'].add_done_callback(
+                                partial(self.handle_update, task_id))
                         except AttributeError as e:
                             logger.error(
                                 "Task {}: Caught AttributeError at update_parent".format(tid))
@@ -306,11 +309,15 @@ class DataFlowKernel(object):
         except Exception as e:
             logger.error("Task {}: requests invalid site {}".format(task_id,
                                                                     site))
-        exec_fu = executor.submit(executable, *args, **kwargs)
-        self.tasks[task_id]['status'] = States.running
-        exec_fu.retries_left = self.fail_retries - \
-            self.tasks[task_id]['fail_count']
-        exec_fu.add_done_callback(partial(self.handle_update, task_id))
+        with self.task_launch_lock:
+            if self.tasks[task_id]['status'] == States.running:
+                logger.warning("Task {} duplicate launch detected, skipping".format(task_id))
+                return self.tasks[task_id]["exec_fu"]
+            else:
+                exec_fu = executor.submit(executable, *args, **kwargs)
+                self.tasks[task_id]['status'] = States.running
+
+        exec_fu.retries_left = self.fail_retries - self.tasks[task_id]['fail_count']
         logger.info("Task {} launched on site {}".format(task_id, site))
         return exec_fu
 
@@ -535,6 +542,7 @@ class DataFlowKernel(object):
                                                           tid=task_id,
                                                           stdout=task_stdout,
                                                           stderr=task_stderr)
+                self.tasks[task_id]['exec_fu'].add_done_callback(partial(self.handle_update, task_id))
                 logger.debug("Task {} launched with AppFut:{}".format(task_id,
                                                                       task_def['app_fu']))
 
